@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import kornia
 import torch
 import torch.nn as nn
-
+import imageio
 
 class Renderer(nn.Module):
     def __init__(self, fov, gamma, attenuation):
@@ -21,6 +21,10 @@ class Renderer(nn.Module):
         )
 
         diffuse = get_diffuse(light_dir, diff, normal)
+        _diffuse = (diffuse[0].ditch().cpu() * 255).byte().permute(1,2,0).numpy()
+        _specular = (specular[0].ditch().cpu() * 255).byte().permute(1,2,0).numpy()
+        imageio.imwrite('__diffuse.png', _diffuse)
+        imageio.imwrite('__specular.png', _specular)
         shaded = math.pi * (diffuse + specular)
 
         return shaded
@@ -78,8 +82,12 @@ class Renderer(nn.Module):
         light_distance = torch.norm(light_pos - image_pos, dim=1, keepdim=True)
         radial_falloff = cos_angle(light_dir, center_light_dir)
         shaded = shaded * self.light_decay(light_distance)
+        print(f'After light decay: {shaded.shape} {shaded.min()} {shaded.max()} {shaded.mean()}')
         shaded = shaded * self.radial_light_attenuation(radial_falloff)
+        print(f'AAfter light radial falloff: {shaded.shape} {shaded.min()} {shaded.max()} {shaded.mean()}')
         shaded = shaded * (2.4 ** 2)
+        print(f'AAfter light radial falloff: {shaded.shape} {shaded.min()} {shaded.max()} {shaded.mean()}')
+    
 
         shaded = self.gamma_corr(shaded, self.gamma)
         shaded = torch.clamp(shaded, 0.0, 1.0)
